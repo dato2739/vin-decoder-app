@@ -3,45 +3,66 @@ import requests
 import base64
 import re
 
-st.set_page_config(page_title="VIN AI Pro", page_icon="🚗")
+st.set_page_config(page_title="VIN AI Pro - Strict Mode", page_icon="🚗")
 
-# თქვენი გასაღები (სურათიდან)
+# თქვენი Google API გასაღები
 API_KEY = "AIzaSyAB3kFsY8BntxR-DaKmBz9CKWYsJ0QhzLs"
 
-st.title("🚗 VIN AI Pro")
+st.markdown("# 🚗 VIN AI Pro (Strict Mode)")
+st.write("ვალიდაციის მაღალი დონე - მხოლოდ რეალური VIN კოდები")
 
-def get_vin_from_google(image_bytes):
+def is_valid_vin(vin):
+    # მკაცრი შემოწმება: 17 სიმბოლო, არანაირი I, O, Q
+    if len(vin) != 17:
+        return False
+    if not re.match(r"^[A-HJ-NPR-Z0-9]{17}$", vin):
+        return False
+    return True
+
+def scan_vin_strict(image_bytes):
     encoded_image = base64.b64encode(image_bytes).decode('utf-8')
     url = f"https://vision.googleapis.com/v1/images:annotate?key={API_KEY}"
     
     payload = {
-        "requests": [{"image": {"content": encoded_image}, "features": [{"type": "TEXT_DETECTION"}]}]
+        "requests": [{
+            "image": {"content": encoded_image},
+            "features": [{"type": "TEXT_DETECTION"}]
+        }]
     }
     
     response = requests.post(url, json=payload)
-    res_data = response.json()
+    result = response.json()
     
-    if 'responses' in res_data and res_data['responses'][0]:
-        full_text = res_data['responses'][0]['textAnnotations'][0]['description']
+    if 'responses' in result and result['responses'][0]:
+        full_text = result['responses'][0]['textAnnotations'][0]['description']
+        # ვასუფთავებთ ყველაფრისგან, გარდა ასოებისა და ციფრებისა
+        potential_blocks = re.findall(r'[A-Z0-9]+', full_text.upper())
         
-        # ვასუფთავებთ ტექსტს სფეისებისგან
-        clean_text = re.sub(r'\s+', '', full_text).upper()
+        valid_vins = []
+        for block in potential_blocks:
+            # თუ ბლოკი გრძელია, ვჭრით 17 სიმბოლოდ და ვამოწმებთ
+            for i in range(len(block) - 16):
+                sub_block = block[i:i+17]
+                if is_valid_vin(sub_block):
+                    valid_vins.append(sub_block)
         
-        # ვეძებთ ზუსტად 17 სიმბოლოს, რომელიც VIN-ის წესებს იცავს (I, O, Q-ს გარეშე)
-        vin_pattern = re.compile(r'[A-HJ-NPR-Z0-9]{17}')
-        match = vin_pattern.search(clean_text)
-        
-        if match:
-            return match.group(0)
+        if valid_vins:
+            # ვაბრუნებთ პირველს, რომელიც ფილტრში გაძვრა
+            return valid_vins[0]
+            
     return None
 
-uploaded_file = st.file_uploader("ატვირთეთ ფოტო", type=['jpg', 'png', 'jpeg'])
+uploaded_file = st.file_uploader("ატვირთეთ ფოტო", type=['jpg', 'jpeg', 'png'])
 
 if uploaded_file:
-    st.image(uploaded_file)
-    if st.button("კოდის ამოცნობა"):
-        result = get_vin_from_google(uploaded_file.getvalue())
-        if result:
-            st.success(f"ნაპოვნია VIN: {result}")
-        else:
-            st.error("ვალიდური VIN კოდი ვერ მოიძებნა. სცადეთ სხვა კუთხით.")
+    st.image(uploaded_file, use_container_width=True)
+    if st.button("სკანირება"):
+        with st.spinner("მიმდინარეობს მკაცრი ვალიდაცია..."):
+            final_result = scan_vin_strict(uploaded_file.getvalue())
+            
+            if final_result:
+                st.success("✅ ნაპოვნია ვალიდური VIN კოდი:")
+                st.code(final_result, language='text')
+            else:
+                st.error("❌ ფოტოზე ვალიდური VIN კოდი არ არსებობს ან ვერ ამოიცნო.")
+                st.info("შენიშვნა: პროგრამა მხოლოდ 17-ნიშნა კოდს იღებს (I, O, Q ასოების გარეშე).")
