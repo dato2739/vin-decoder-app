@@ -4,30 +4,25 @@ import base64
 import re
 
 # --- კონფიგურაცია ---
-st.set_page_config(page_title="იოანეს მანქანის ძებნა", layout="wide")
+st.set_page_config(page_title="ვინ კოდით ძებნა", layout="wide")
 
 # სრულყოფილი მუქი ფონის სტილი
 st.markdown("""
     <style>
-    /* მთლიანი გვერდის ფონი */
     .stApp {
         background-color: #0e1117;
         color: #fafafa;
     }
-    /* ჰედერის გამუქება */
     header[data-testid="stHeader"] {
         background-color: #0e1117;
     }
-    /* ტექსტის ფერები */
     h1, h2, h3, p, span, label {
         color: #fafafa !important;
     }
-    /* ფაილის ატვირთვის ზონა */
     section[data-testid="stFileUploadDropzone"] {
         background-color: #161b22;
         border: 1px solid #30363d;
     }
-    /* ღილაკების სტილი */
     .stButton>button {
         background-color: #21262d;
         color: #c9d1d9;
@@ -38,7 +33,6 @@ st.markdown("""
         border-color: #8b949e;
         color: #ffffff;
     }
-    /* ტექსტის შესაყვანი ველი */
     .stTextInput>div>div>input {
         background-color: #0d1117;
         color: #ffffff;
@@ -66,16 +60,17 @@ def extract_vin(image_bytes):
         response = requests.post(url, json=payload, timeout=20)
         res_json = response.json()
         text = res_json['responses'][0]['textAnnotations'][0]['description']
+        # 17 ნიშნა VIN-ის პოვნა
         match = re.search(r'[A-Z0-9]{17}', text.upper().replace('O', '0'))
         return match.group(0) if match else None
     except:
         return None
 
 # --- ინტერფეისი ---
-st.title("🚗 იოანეს მანქანის ძებნა")
+st.title("ვინ კოდით ძებნა")
 
 if st.session_state.step == 1:
-    st.subheader("📸 ატვირთეთ ვინ კოდის სურათი")
+    st.subheader("ატვირთეთ ვინ კოდის სურათი")
     
     file = st.file_uploader("აირჩიეთ ფაილი (JPG, PNG)", type=['jpg', 'jpeg', 'png'])
     
@@ -97,8 +92,9 @@ if st.session_state.step == 1:
         st.rerun()
 
 elif st.session_state.step == 2:
-    st.header(f"🔍 ნაპოვნია VIN: {st.session_state.vin}")
+    st.header(f"ნაპოვნია VIN: {st.session_state.vin}")
     
+    # მხოლოდ Google-ის ძიების ბმული
     google_url = f"https://www.google.com/search?q={st.session_state.vin}"
     
     st.info("დააჭირეთ ღილაკს ინფორმაციის სანახავად:")
