@@ -6,56 +6,38 @@ import re
 # --- კონფიგურაცია ---
 st.set_page_config(page_title="ვინ კოდით ძებნა", layout="wide")
 
-# რუხი ფონის და მკვეთრი ღილაკების სტილი
+# დავაბრუნე მუქი (შავი) ფონი და სტანდარტული სტილი
 st.markdown("""
     <style>
-    /* მთლიანი გვერდის რუხი ფონი */
     .stApp {
-        background-color: #2b2d33;
-        color: #ffffff;
+        background-color: #0e1117;
+        color: #fafafa;
     }
     header[data-testid="stHeader"] {
-        background-color: #2b2d33;
+        background-color: #0e1117;
     }
-    /* ტექსტის ფერები */
     h1, h2, h3, p, span, label {
-        color: #ffffff !important;
+        color: #fafafa !important;
     }
-    /* ფაილის ატვირთვის ზონა */
     section[data-testid="stFileUploadDropzone"] {
-        background-color: #3d4048;
-        border: 2px dashed #ff4b2b; /* მკვეთრი ჩარჩო */
+        background-color: #161b22;
+        border: 1px solid #30363d;
     }
-    /* მკვეთრი ნარინჯისფერი ღილაკები */
     .stButton>button {
-        background-color: #ff4b2b !important; /* მკვეთრი ნარინჯისფერი */
-        color: white !important;
-        border: none !important;
-        padding: 15px 30px !important;
-        font-weight: 800 !important;
-        font-size: 18px !important;
-        border-radius: 10px !important;
-        width: 100% !important;
-        text-transform: uppercase !important;
-        letter-spacing: 1px !important;
-        box-shadow: 0 5px 15px rgba(255, 75, 43, 0.4) !important;
-        transition: 0.3s ease !important;
+        background-color: #21262d;
+        color: #c9d1d9;
+        border: 1px solid #30363d;
+        width: 100%;
+        padding: 10px;
     }
     .stButton>button:hover {
-        background-color: #ff6a4d !important;
-        box-shadow: 0 8px 20px rgba(255, 75, 43, 0.6) !important;
-        transform: translateY(-2px);
-    }
-    /* ტექსტის შესაყვანი ველი */
-    .stTextInput>div>div>input {
-        background-color: #3d4048;
+        border-color: #8b949e;
         color: #ffffff;
-        border: 2px solid #64676e;
-        padding: 12px;
-        border-radius: 8px;
     }
-    .stTextInput>div>div>input:focus {
-        border-color: #ff4b2b;
+    .stTextInput>div>div>input {
+        background-color: #0d1117;
+        color: #ffffff;
+        border: 1px solid #30363d;
     }
     </style>
     """, unsafe_allow_html=True)
@@ -104,7 +86,7 @@ if st.session_state.step == 1:
                 
     st.divider()
     manual_vin = st.text_input("ან შეიყვანეთ VIN ხელით:")
-    if manual_vin and st.button("ხელით ძიება 🔍"):
+    if manual_vin and st.button("ძიება"):
         st.session_state.vin = manual_vin.upper().strip()
         st.session_state.step = 2
         st.rerun()
