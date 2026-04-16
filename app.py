@@ -4,10 +4,42 @@ import base64
 import re
 from bs4 import BeautifulSoup
 
-st.set_page_config(page_title="VIN AI Pro - v1.8", page_icon="🚗", layout="wide")
+st.set_page_config(page_title="VIN AI Pro - v1.9", page_icon="🚗", layout="wide")
 
 API_KEY = "AIzaSyAB3kFsY8BntxR-DaKmBz9CKWYsJ0QhzLs"
 CRAWLBASE_TOKEN = "ytg_Gb7SMVGtgq4sUy36Hw"
+
+def get_vin_data(vin):
+    """BidFax-იდან დეტალური ინფორმაციის და სურათების ამოღება"""
+    search_url = f"https://bidfax.info/index.php?do=search&subaction=search&story={vin}"
+    proxy_url = f"https://api.crawlbase.com/?token={CRAWLBASE_TOKEN}&url={search_url}&javascript=true"
+    
+    data = {"images": [], "info": {}}
+    try:
+        res = requests.get(proxy_url, timeout=40)
+        if res.status_code == 200:
+            soup = BeautifulSoup(res.text, 'html.parser')
+            
+            # 1. სურათების ძებნა (უფრო ფართო ფილტრით)
+            for img in soup.find_all('img', src=True):
+                src = img['src']
+                if "uploads" in src or "bidfax" in src:
+                    if src.startswith('/'): src = "https://bidfax.info" + src
+                    if src not in data["images"]: data["images"].append(src)
+            
+            # 2. ინფორმაციის ამოღება (ფასი, გარბენი, დაზიანება)
+            # ვეძებთ ტექსტურ ბლოკებს, რომლებიც თქვენს სქრინშოტზე ჩანს
+            text_content = soup.get_text()
+            price = re.search(r'Финиշ. ставка: \$(\d+)', text_content)
+            mileage = re.search(r'Пробег: ([\d\s]+миль)', text_content)
+            damage = re.search(r'Основное ушкодження: ([\w\s]+)', text_content)
+            
+            if price: data["info"]["ფასი"] = f"${price.group(1)}"
+            if mileage: data["info"]["გარბენი"] = mileage.group(1)
+            if damage: data["info"]["დაზიანება"] = damage.group(1)
+            
+    except: pass
+    return data
 
 def scan_vin_strict(image_bytes):
     encoded_image = base64.b64encode(image_bytes).decode('utf-8')
@@ -24,81 +56,49 @@ def scan_vin_strict(image_bytes):
     except: pass
     return None
 
-def get_images_from_source(vin, source_type="bidcars"):
-    """სურათების ამოღება სხვადასხვა წყაროდან"""
-    if source_type == "bidcars":
-        url = f"https://bid.cars/en/search/results?q={vin}"
-    else: # BidFax ალტერნატივა
-        url = f"https://bidfax.info/index.php?do=search&subaction=search&story={vin}"
-    
-    proxy_url = f"https://api.crawlbase.com/?token={CRAWLBASE_TOKEN}&url={url}&javascript=true"
-    image_links = []
-    
-    try:
-        response = requests.get(proxy_url, timeout=35)
-        if response.status_code == 200:
-            soup = BeautifulSoup(response.text, 'html.parser')
-            for img in soup.find_all('img', src=True):
-                src = img['src']
-                # ფილტრაცია წყაროს მიხედვით
-                if source_type == "bidcars" and "b-cdn.net" in src:
-                    full_img = src.replace("-thumbnail", "").replace("-small", "")
-                    if full_img not in image_links: image_links.append(full_img)
-                elif source_type == "bidfax" and "uploads" in src:
-                    if src.startswith('/'): src = "https://bidfax.info" + src
-                    if src not in image_links: image_links.append(src)
-    except: pass
-    return image_links
-
-# --- მთავარი ლოგიკა ---
+# --- UI ---
 if 'page' not in st.session_state: st.session_state['page'] = 'home'
 
 if st.session_state['page'] == 'home':
-    st.title("🚗 VIN AI Pro - Multi-Source Search")
-    file = st.file_uploader("ატვირთეთ VIN სტიკერი", type=['jpg', 'jpeg', 'png'])
+    st.title("🚗 VIN AI Pro - Deep Scanner")
+    file = st.file_uploader("ატვირთეთ ფოტო", type=['jpg', 'jpeg', 'png'])
     if file:
         st.image(file, width=300)
-        if st.button("ანალიზის დაწყება", use_container_width=True):
+        if st.button("დეტალური ძიების დაწყება", use_container_width=True):
             vin = scan_vin_strict(file.getvalue())
             if vin:
                 st.session_state['active_vin'] = vin
-                with st.spinner("ვეძებ სურათებს bid.cars-ზე..."):
-                    imgs = get_images_from_source(vin, "bidcars")
-                
-                # თუ bid.cars-ზე არ არის, გადადის BidFax-ზე
-                if not imgs:
-                    with st.spinner("bid.cars ცარიელია. ვეძებ BidFax-ზე..."):
-                        imgs = get_images_from_source(vin, "bidfax")
-                
-                st.session_state['images'] = imgs
+                with st.spinner("მიმდინარეობს მონაცემების სკანირება ბაზებში..."):
+                    st.session_state['result_data'] = get_vin_data(vin)
                 st.session_state['page'] = 'analysis'
                 st.rerun()
-            else:
-                st.error("❌ VIN კოდი ვერ ამოიცნო")
 
 elif st.session_state['page'] == 'analysis':
     vin = st.session_state['active_vin']
-    imgs = st.session_state.get('images', [])
-
-    if st.button("⬅️ უკან"): 
-        st.session_state['page'] = 'home'
-        st.rerun()
-
-    st.success(f"✅ VIN: {vin}")
+    res_data = st.session_state.get('result_data', {"images": [], "info": {}})
     
-    st.subheader("🖼️ ნაპოვნი ფოტოები")
+    st.button("⬅️ უკან", on_click=lambda: st.session_state.update({"page": 'home'}))
+    st.header(f"🔍 VIN: {vin}")
+
+    # ინფორმაციის პანელი
+    if res_data["info"]:
+        st.subheader("📋 აუქციონის მონაცემები")
+        cols = st.columns(len(res_data["info"]))
+        for i, (key, val) in enumerate(res_data["info"].items()):
+            cols[i].metric(key, val)
+
+    st.divider()
+
+    # სურათების გალერეა
+    st.subheader("🖼️ აუქციონის ფოტოები")
+    imgs = res_data.get("images", [])
     if imgs:
+        st.success(f"ნაპოვნია {len(imgs)} ფოტო")
         cols = st.columns(3)
         for i, url in enumerate(imgs):
             cols[i % 3].image(url, use_container_width=True)
     else:
-        st.warning("⚠️ სურათები ავტომატურად ვერ მოიძებნა. გამოიყენეთ პირდაპირი ბმულები.")
+        st.warning("სურათები ავტომატურად ვერ ამოიკითხა. სცადეთ პირდაპირი ბმული.")
 
     st.divider()
-    
-    # ღილაკები, რომლებიც მომხმარებელს დაეხმარება, თუ სკრაპერმა ვერაფერი იპოვა
-    st.subheader("🔗 დამატებითი ძებნა")
-    c1, c2, c3 = st.columns(3)
-    with c1: st.link_button("🌐 Google Images", f"https://www.google.com/search?q=\"{vin}\"&tbm=isch", use_container_width=True)
-    with c2: st.link_button("🖼️ BidFax (Manual)", f"https://bidfax.info/index.php?do=search&subaction=search&story={vin}", use_container_width=True)
-    with c3: st.link_button("📊 Carfax", f"https://www.carfax.com/vin/{vin}", use_container_width=True)
+    st.link_button("ნახე BidFax-ზე (სრული გვერდი)", f"https://bidfax.info/index.php?do=search&subaction=search&story={vin}")
