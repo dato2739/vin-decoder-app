@@ -6,6 +6,25 @@ import re
 # --- კონფიგურაცია ---
 st.set_page_config(page_title="იოანეს მანქანის ძებნა", layout="wide")
 
+# მუქი ფონის სტილი (CSS)
+st.markdown("""
+    <style>
+    .main {
+        background-color: #0e1117;
+        color: #ffffff;
+    }
+    .stButton>button {
+        background-color: #262730;
+        color: white;
+        border: 1px solid #4f4f4f;
+    }
+    .stTextInput>div>div>input {
+        background-color: #262730;
+        color: white;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
 # Google Vision API გასაღები
 VISION_API_KEY = "AIzaSyAB3kFsY8BntxR-DaKmBz9CKWYsJ0QhzLs"
 
