@@ -3,82 +3,99 @@ import requests
 import base64
 import re
 
-st.set_page_config(page_title="AI Car Analyzer", layout="wide")
+# კონფიგურაცია
+st.set_page_config(page_title="VIN AI Investigator", layout="centered")
 
 API_KEY = "AIzaSyAB3kFsY8BntxR-DaKmBz9CKWYsJ0QhzLs"
 
-def process_images(image_list):
-    """ყველა ატვირთული ფოტოს დამუშავება ერთიანად"""
-    combined_results = {"text_data": {}, "visual_notes": []}
+# Session State-ის ინიციალიზაცია, რომ აპმა ნაბიჯები დაიმახსოვროს
+if 'step' not in st.session_state:
+    st.session_state.step = 1
+if 'vin' not in st.session_state:
+    st.session_state.vin = None
+
+def scan_text(image_bytes):
+    encoded = base64.b64encode(image_bytes).decode('utf-8')
+    url = f"https://vision.googleapis.com/v1/images:annotate?key={API_KEY}"
+    payload = {"requests": [{"image": {"content": encoded}, "features": [{"type": "TEXT_DETECTION"}]}]}
+    try:
+        res = requests.post(url, json=payload).json()
+        return res['responses'][0]['textAnnotations'][0]['description']
+    except: return ""
+
+# --- ეტაპი 1: VIN-ის აღება ---
+if st.session_state.step == 1:
+    st.title("Step 1: 📸 VIN სკანირება")
+    mode = st.radio("აირჩიეთ წყარო:", ["კამერა", "გალერეა"], horizontal=True)
     
-    for img in image_list:
-        encoded = base64.b64encode(img.getvalue()).decode('utf-8')
-        url = f"https://vision.googleapis.com/v1/images:annotate?key={API_KEY}"
-        payload = {
-            "requests": [{
-                "image": {"content": encoded},
-                "features": [{"type": "TEXT_DETECTION"}, {"type": "LABEL_DETECTION"}]
-            }]
-        }
+    source = st.camera_input("გადაუღეთ VIN-ს") if mode == "კამერა" else st.file_uploader("ატვირთეთ VIN")
+    
+    if source and st.button("შემდეგი ➡️"):
+        text = scan_text(source.getvalue())
+        vin_match = re.search(r'[A-Z0-9]{17}', text.upper().replace('O', '0'))
+        if vin_match:
+            st.session_state.vin = vin_match.group(0)
+            st.session_state.step = 2
+            st.rerun()
+        else:
+            st.error("VIN კოდი ვერ ამოიცნო. სცადეთ თავიდან.")
+
+# --- ეტაპი 2: ციფრული VIN და ლინკები ---
+elif st.session_state.step == 2:
+    st.title("Step 2: 🔗 ძებნა და ბმულები")
+    st.success(f"ამოცნობილი VIN: **{st.session_state.vin}**")
+    
+    col1, col2, col3 = st.columns(3)
+    col1.link_button("Google Search", f"https://www.google.com/search?q={st.session_state.vin}+auction")
+    col2.link_button("BidFax Search", f"https://bidfax.info/index.php?do=search&subaction=search&story={st.session_state.vin}")
+    col3.link_button("Bid.cars", f"https://bid.cars/en/search/results?q={st.session_state.vin}")
+    
+    st.info("მოძებნეთ ინფორმაცია ამ ლინკებზე, გადაუღეთ სქრინშოტები და დაბრუნდით აქ.")
+    if st.button("გადავიდეთ ატვირთვაზე ➡️"):
+        st.session_state.step = 3
+        st.rerun()
+
+# --- ეტაპი 3: სქრინშოტების ატვირთვა ---
+elif st.session_state.step == 3:
+    st.title("Step 3: 📤 სქრინშოტების მიწოდება")
+    st.write(f"VIN: {st.session_state.vin}")
+    
+    screenshots = st.file_uploader("ატვირთეთ აუქციონის სურათები და ინფო (max 6)", 
+                                  type=['jpg', 'png', 'jpeg'], 
+                                  accept_multiple_files=True)
+    
+    if screenshots and st.button("ანალიზის დაწყება 🚀"):
+        st.session_state.screenshots = screenshots
+        st.session_state.step = 4
+        st.rerun()
+
+# --- ეტაპი 4: გაფართოებული ანალიზი ---
+elif st.session_state.step == 4:
+    st.title("Step 4: 🧠 AI ექსპერტიზა")
+    
+    with st.spinner("AI ამუშავებს მონაცემებს..."):
+        all_text = ""
+        for img in st.session_state.screenshots:
+            all_text += scan_text(img.getvalue()) + " "
         
-        try:
-            res = requests.post(url, json=payload).json()
-            annotations = res['responses'][0]
-            
-            # ტექსტის ამოკრეფა (ფასი, გარბენი, VIN)
-            if 'textAnnotations' in annotations:
-                text = annotations['textAnnotations'][0]['description']
-                
-                # VIN ძებნა
-                vin = re.search(r'[A-Z0-9]{17}', text)
-                if vin: combined_results["text_data"]["VIN"] = vin.group(0)
-                
-                # ფასის ძებნა
-                price = re.search(r'\$(\d{1,3}(?:,\d{3})*)', text)
-                if price: combined_results["text_data"]["ბოლო ფასი"] = price.group(0)
-                
-                # გარბენის ძებნა
-                mileage = re.search(r'(\d{1,3}(?:,\d{3})*)\s*(?:mi|miles|миль)', text, re.I)
-                if mileage: combined_results["text_data"]["გარბენი"] = f"{mileage.group(1)} mi"
+        # მარტივი ლოგიკა მონაცემების გამოსატანად
+        price = re.search(r'\$(\d{1,3}(?:,\d{3})*)', all_text)
+        mileage = re.search(r'(\d{1,3}(?:,\d{3})*)\s*(?:mi|miles)', all_text, re.I)
+        
+        col1, col2 = st.columns(2)
+        with col1:
+            st.subheader("📊 მონაცემები")
+            st.write(f"**ფასი:** {price.group(0) if price else 'ვერ მოიძებნა'}")
+            st.write(f"**გარბენი:** {mileage.group(0) if mileage else 'ვერ მოიძებნა'}")
+        
+        with col2:
+            st.subheader("📝 AI დასკვნა")
+            if price and mileage:
+                st.write("ანალიზი: მონაცემები წარმატებით იქნა ამოკითხული სქრინშოტებიდან.")
+            else:
+                st.warning("ზოგიერთი მონაცემი სქრინშოტზე ბუნდოვანია.")
 
-        except:
-            continue
-            
-    return combined_results
-
-st.title("🚗 კომპლექსური AI ანალიზი")
-st.write("ატვირთეთ აუქციონის 6-მდე სქრინშოტი (მონაცემები + ფოტოები)")
-
-# Multi-upload ფუნქცია
-uploaded_files = st.file_uploader("ამოირჩიეთ სქრინშოტები", type=['jpg', 'png', 'jpeg'], accept_multiple_files=True)
-
-if uploaded_files:
-    # გალერეის ჩვენება
-    st.subheader("🖼️ ატვირთული ფაილები")
-    cols = st.columns(min(len(uploaded_files), 6))
-    for idx, file in enumerate(uploaded_files):
-        cols[idx].image(file, use_container_width=True)
-    
-    if len(uploaded_files) > 6:
-        st.warning("გთხოვთ, შემოიფარგლოთ 6 ფოტოთი საუკეთესო შედეგისთვის.")
-    
-    if st.button("🚀 დაიწყე სრული ანალიზი", use_container_width=True):
-        with st.spinner("AI აანალიზებს სქრინშოტებს..."):
-            results = process_images(uploaded_files)
-            
-            st.divider()
-            col_a, col_b = st.columns(2)
-            
-            with col_a:
-                st.subheader("📊 ამოკრებილი მონაცემები")
-                if results["text_data"]:
-                    for k, v in results["text_data"].items():
-                        st.write(f"**{k}:** {v}")
-                else:
-                    st.info("ტექსტური მონაცემები ვერ მოიძებნა. დარწმუნდით, რომ ატვირთეთ აუქციონის დეტალების სქრინშოტი.")
-            
-            with col_b:
-                st.subheader("🤖 AI შეფასება")
-                # აქ შეგვიძლია დავამატოთ ლოგიკა, რომელიც აფასებს მონაცემებს
-                if "გარბენი" in results["text_data"]:
-                    st.success("✅ მონაცემები მიღებულია. AI გირჩევთ ისტორიის გადამოწმებას.")
+    if st.button("თავიდან დაწყება 🔄"):
+        st.session_state.step = 1
+        st.session_state.vin = None
+        st.rerun()
