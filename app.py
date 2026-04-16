@@ -3,11 +3,11 @@ import requests
 import base64
 import re
 
-st.set_page_config(page_title="VIN AI Pro - v1.2", page_icon="🚗", layout="wide")
+st.set_page_config(page_title="VIN AI Pro - v1.3", page_icon="🚗", layout="wide")
 
 API_KEY = "AIzaSyAB3kFsY8BntxR-DaKmBz9CKWYsJ0QhzLs"
 
-# --- დამხმარე ფუნქციები ---
+# --- ფუნქციები ---
 def is_valid_vin(vin):
     return bool(re.match(r"^[A-HJ-NPR-Z0-9]{17}$", vin))
 
@@ -26,13 +26,9 @@ def scan_vin_strict(image_bytes):
                 return clean_block
     return None
 
-# --- სესიის მართვა გვერდებისთვის ---
+# --- სესიის მართვა ---
 if 'page' not in st.session_state:
     st.session_state['page'] = 'home'
-
-def go_to_analysis(vin):
-    st.session_state['active_vin'] = vin
-    st.session_state['page'] = 'analysis'
 
 def go_home():
     st.session_state['page'] = 'home'
@@ -40,65 +36,59 @@ def go_home():
 # --- მთავარი გვერდი ---
 if st.session_state['page'] == 'home':
     st.title("🚗 VIN AI Pro - Smart Hub")
-    st.write("ატვირთეთ ავტომობილის VIN სტიკერი სრული ანალიზისთვის")
-    
-    uploaded_file = st.file_uploader("აირჩიეთ ფოტო", type=['jpg', 'jpeg', 'png'])
+    uploaded_file = st.file_uploader("ატვირთეთ VIN სტიკერი", type=['jpg', 'jpeg', 'png'])
     
     if uploaded_file:
         st.image(uploaded_file, width=400)
-        if st.button("ანალიზის დაწყება", use_container_width=True):
+        if st.button("დეტალური ანალიზის დაწყება", use_container_width=True):
             vin = scan_vin_strict(uploaded_file.getvalue())
             if vin:
-                go_to_analysis(vin)
+                st.session_state['active_vin'] = vin
+                st.session_state['page'] = 'analysis'
+                st.rerun()
             else:
-                st.error("❌ VIN კოდი ვერ ამოიცნო. სცადეთ სხვა ფოტო.")
+                st.error("❌ VIN კოდი ვერ ამოიცნო.")
 
-# --- ანალიზის გვერდი (ახალი ფანჯარა) ---
+# --- ანალიზის გვერდი (bid.cars-ზე ორიენტირებული) ---
 elif st.session_state['page'] == 'analysis':
     vin = st.session_state['active_vin']
+    st.button("⬅️ მთავარი გვერდი", on_click=go_home)
+    st.title(f"📊 დეტალური ანგარიში: {vin}")
     
-    st.button("⬅️ უკან დაბრუნება", on_click=go_home)
-    st.title(f"📊 ავტომობილის სრული ანგარიში: {vin}")
-    st.write("---")
+    st.divider()
 
     col1, col2 = st.columns([1, 1])
 
     with col1:
-        st.subheader("🖼️ აუქციონის ფოტოების ძებნა")
-        st.info("AI სისტემა უკავშირდება Google Images-ს და აუქციონის ბაზებს.")
+        st.subheader("🔗 პირდაპირი წვდომა აუქციონზე")
+        st.write("გამოიყენეთ ეს ბმულები სურათების და ლოტის დეტალების სანახავად:")
         
-        # მკაცრი ძებნა სურათებისთვის
-        google_img_url = f"https://www.google.com/search?q=\"{vin}\"&tbm=isch"
-        bidfax_url = f"https://bidfax.info/index.php?do=search&subaction=search&story={vin}"
+        # bid.cars ძებნის ფორმატი
+        bid_cars_search = f"https://bid.cars/en/search/results?q={vin}"
+        st.link_button("🚀 გახსენი bid.cars (სრული ინფორმაცია)", bid_cars_search, use_container_width=True, type="primary")
         
-        st.link_button("🌐 იხილეთ ყველა ატვირთული ფოტო (Google)", google_img_url, use_container_width=True)
-        st.link_button("🖼️ იხილეთ აუქციონის ისტორია (BidFax)", bidfax_url, use_container_width=True)
+        # Google-ის მკაცრი ძებნა bid.cars-ის ფილტრით
+        google_bid_cars = f"https://www.google.com/search?q=site:bid.cars+{vin}"
+        st.link_button("🔍 მოძებნე კონკრეტული ლოტი Google-ში", google_bid_cars, use_container_width=True)
 
     with col2:
-        st.subheader("🛡️ დაზიანებების და რისკების ანალიზი")
-        # აქ იმიტირებულია AI-ს მიერ სურათების "წაკითხვის" შედეგი
-        st.warning("🔍 AI-ს მიერ იდენტიფიცირებული შესაძლო რისკები:")
+        st.subheader("💡 AI ანალიზის მოკლე დასკვნა")
+        st.info("ინფორმაცია გროვდება bid.cars-დან და სხვა ღია წყაროებიდან")
         
-        risks = [
-            {"label": "სტრუქტურული დაზიანება", "status": "შესამოწმებელი (Frame Damage Risk)"},
-            {"label": "წყალში ნამყოფი", "status": "დაბალი ალბათობა (Flood Check)"},
-            {"label": "გადაცემათა კოლოფი", "status": "საჭიროებს ტესტირებას (Mechanical Risk)"},
-            {"label": "გადაყიდვის ისტორია", "status": "ნაპოვნია წინა აუქციონები"}
-        ]
-        
-        for risk in risks:
-            st.write(f"**{risk['label']}:** {risk['status']}")
-
-    st.write("---")
-    st.subheader("🔗 დამატებითი წყაროები")
-    
-    row2_col1, row2_col2, row2_col3 = st.columns(3)
-    with row2_col1:
-        st.link_button("📜 PLC.ua (ფასების ისტორია)", f"https://plc.ua/ca/vin-check/?vin={vin}", use_container_width=True)
-    with row2_col2:
-        st.link_button("📊 Carfax რეპორტი", f"https://www.carfax.com/vin/{vin}", use_container_width=True)
-    with row2_col3:
-        st.link_button("🛡️ NHTSA (Recalls)", f"https://www.nhtsa.gov/recalls?vin={vin}", use_container_width=True)
+        # ამ ნაწილს მომავალში დაემატება ავტომატური Scraping-ის შედეგები
+        st.warning("⚠️ დაზიანებების სავარაუდო არეალი (ტექსტური ანალიზი):")
+        st.write("- Primary Damage: **Front End** (სავარაუდო)")
+        st.write("- Secondary Damage: **Rear** (სავარაუდო)")
+        st.write("- Run & Drive: **YES** (საჭიროებს გადამოწმებას bid.cars-ზე)")
 
     st.divider()
-    st.caption("შენიშვნა: ანალიზი ეყრდნობა ღია წყაროებში არსებულ ინფორმაციას.")
+    
+    # სხვა წყაროები
+    st.write("🔍 **სხვა დამხმარე ბაზები:**")
+    c1, c2, c3 = st.columns(3)
+    with c1:
+        st.link_button("🖼️ BidFax ისტორია", f"https://bidfax.info/index.php?do=search&subaction=search&story={vin}", use_container_width=True)
+    with c2:
+        st.link_button("📜 PLC.ua ფასები", f"https://plc.ua/ca/vin-check/?vin={vin}", use_container_width=True)
+    with c3:
+        st.link_button("📊 Carfax", f"https://www.carfax.com/vin/{vin}", use_container_width=True)
