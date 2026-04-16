@@ -102,3 +102,47 @@ elif st.session_state['page'] == 'analysis':
             cols[i % 3].image(url, use_container_width=True)
     else:
         st.warning("სურათები ვერ ამოიკითხა. შეამოწმეთ ლინკის სისწორე.")
+
+
+def parse_lot_page(url):
+    """ასკანირებს პირდაპირ ლოტის გვერდს გაუმჯობესებული ფილტრებით"""
+    # აუცილებელია JavaScript ტოკენის გამოყენება Crawlbase-დან
+    proxy_url = f"https://api.crawlbase.com/?token={CRAWLBASE_TOKEN}&javascript=true&url={url}"
+    data = {"images": [], "info": {}}
+    
+    try:
+        res = requests.get(proxy_url, timeout=45)
+        if res.status_code == 200:
+            soup = BeautifulSoup(res.text, 'html.parser')
+            
+            # 1. სურათების ამოღება - ვეძებთ ყველა სავარაუდო წყაროს
+            for img in soup.find_all('img'):
+                src = img.get('src') or img.get('data-src') # ზოგიერთი საიტი იყენებს lazy-load-ს
+                if src and ("uploads" in src or "b-cdn.net" in src):
+                    full_url = src if src.startswith('http') else "https://bidfax.info" + src
+                    if full_url not in data["images"]:
+                        data["images"].append(full_url)
+            
+            # 2. ინფორმაციის ამოღება კონკრეტული კლასებიდან (თუ არსებობს)
+            # BidFax-ზე მონაცემები ხშირად <li> ან <div> ტეგებშია
+            full_text = soup.get_text()
+            
+            # ფასის ძებნა (სხვადასხვა ვარიაცია)
+            price_match = re.search(r'ставка: \$(\d+)', full_text) or re.search(r'Price: \$(\d+)', full_text)
+            if price_match:
+                data["info"]["აუქციონის ფასი"] = f"${price_match.group(1)}"
+            
+            # გარბენის ძებნა
+            mileage_match = re.search(r'Пробег: ([\d\s]+)', full_text) or re.search(r'Mileage: ([\d\s]+)', full_text)
+            if mileage_match:
+                data["info"]["გარბენი"] = f"{mileage_match.group(1).strip()} mi"
+
+            # VIN-ის ამოღება პირდაპირ გვერდიდან (დამატებითი გადამოწმებისთვის)
+            vin_match = re.search(r'[A-HJ-NPR-Z0-9]{17}', full_text.upper())
+            if vin_match:
+                data["info"]["VIN"] = vin_match.group(0)
+
+    except Exception as e:
+        st.error(f"სკანირების შეცდომა: {e}")
+    
+    return data
