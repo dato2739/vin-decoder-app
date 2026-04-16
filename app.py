@@ -3,23 +3,45 @@ import requests
 import base64
 import re
 
-st.set_page_config(page_title="VIN AI Pro - Smart Hub", page_icon="🚗", layout="centered")
+st.set_page_config(page_title="VIN AI - Auction Analyzer", page_icon="🚗", layout="centered")
 
 API_KEY = "AIzaSyAB3kFsY8BntxR-DaKmBz9CKWYsJ0QhzLs"
 
+# დაზიანების ლექსიკონი ანალიზისთვის
+DAMAGE_MAP = {
+    "front end": "წინა მხარის დაზიანება (ბამპერი, რადიატორი, ძრავის საფარი)",
+    "rear end": "უკანა მხარის დაზიანება (საბარგული, ბამპერი)",
+    "side": "გვერდითი დარტყმა (კარები, ცენტრალური სტოიკა)",
+    "all over": "მთლიანი კორპუსის დაზიანება (შესაძლოა გადატრიალებული)",
+    "water/flood": "წყალში ნამყოფი (საშიშია ელექტროობისთვის!)",
+    "burn": "ნაწვარი (ხშირად აღდგენას არ ექვემდებარება)",
+    "biohazard": "ბიოლოგიური საფრთხე (სალონში სისხლი, ობი ან სხვა)",
+    "mechanical": "ძრავის ან გადაცემათა კოლოფის პრობლემა",
+    "minor dents": "მცირე ნაჭდევები/ჩაზნექილობა",
+    "normal wear": "ბუნებრივი ცვეთა",
+    "frame damage": "ჩონჩხის/რამის დაზიანება (სერიოზული საფრთხე!)"
+}
+
+def analyze_auction_text(text):
+    text = text.lower()
+    found_issues = []
+    
+    for key, val in DAMAGE_MAP.items():
+        if key in text:
+            found_issues.append(val)
+            
+    if "run and drive" in text:
+        status = "✅ მანქანა იქოქება და დადის (Run & Drive)"
+    elif "starts" in text:
+        status = "⚠️ მანქანა იქოქება, მაგრამ არ დადის"
+    else:
+        status = "❌ არ იქოქება / სტატუსი უცნობია"
+        
+    return found_issues, status
+
+# --- ძირითადი ფუნქციები (VIN სკანირება) ---
 def is_valid_vin(vin):
     return bool(re.match(r"^[A-HJ-NPR-Z0-9]{17}$", vin))
-
-def get_vin_details(vin):
-    url = f"https://vpic.nhtsa.dot.gov/api/vehicles/decodevinvalues/{vin}?format=json"
-    try:
-        response = requests.get(url, timeout=5)
-        if response.status_code == 200:
-            res = response.json()['Results'][0]
-            if not res.get("Make"): return None
-            return res
-    except: return None
-    return None
 
 def scan_vin_strict(image_bytes):
     encoded_image = base64.b64encode(image_bytes).decode('utf-8')
@@ -27,7 +49,7 @@ def scan_vin_strict(image_bytes):
     payload = {"requests": [{"image": {"content": encoded_image}, "features": [{"type": "TEXT_DETECTION"}]}]}
     response = requests.post(url, json=payload)
     result = response.json()
-    if 'responses' in result and result['responses'][0]:
+    if 'responses' in result and result['responses'][0].get('textAnnotations'):
         full_text = result['responses'][0]['textAnnotations'][0]['description']
         processed_text = full_text.upper().replace('O', '0')
         potential_blocks = processed_text.split()
@@ -37,56 +59,40 @@ def scan_vin_strict(image_bytes):
                 return clean_block
     return None
 
-st.markdown("<h1 style='text-align: center;'>🚗 VIN AI Pro - Smart Hub</h1>", unsafe_allow_html=True)
-st.write("---")
+# --- ინტერფეისი ---
+st.title("🚗 VIN & Auction Smart Analyzer")
 
-uploaded_file = st.file_uploader("ატვირთეთ ფოტო", type=['jpg', 'jpeg', 'png'])
+tabs = st.tabs(["VIN სკანერი", "აუქციონის ტექსტური ანალიზი"])
 
-if uploaded_file:
-    st.image(uploaded_file, use_container_width=True)
-    if st.button("ანალიზი და იდენტიფიკაცია", use_container_width=True):
-        with st.spinner("სისტემა ამოწმებს ბაზებს..."):
+with tabs[0]:
+    uploaded_file = st.file_uploader("ატვირთეთ VIN სტიკერი", type=['jpg', 'jpeg', 'png'])
+    if uploaded_file:
+        st.image(uploaded_file, use_container_width=True)
+        if st.button("VIN-ის ამოცნობა"):
             vin = scan_vin_strict(uploaded_file.getvalue())
-            
             if vin:
-                st.success(f"✅ ამოცნობილია: {vin}")
-                details = get_vin_details(vin)
-                
-                if details:
-                    st.write(f"### 📋 {details.get('ModelYear')} {details.get('Make')} {details.get('Model')}")
-                
-                st.write("---")
-                st.write("🔍 **ხელმისაწვდომი ინფორმაცია:**")
-                
-                col1, col2 = st.columns(2)
-                
-                with col1:
-                    # BidFax - შეცვლილი ლინკი პირდაპირი ძებნისთვის
-                    bidfax_url = f"https://bidfax.info/index.php?do=search&subaction=search&story={vin}"
-                    st.link_button("🖼️ აუქციონის ფოტოები (BidFax)", bidfax_url, use_container_width=True)
-                
-                with col2:
-                    if details:
-                        st.link_button("🛡️ უსაფრთხოება (NHTSA)", f"https://www.nhtsa.gov/recalls?vin={vin}", use_container_width=True)
-                    else:
-                        st.button("🛡️ უსაფრთხოება (მონაცემები არ არის)", disabled=True, use_container_width=True)
-
-                col3, col4 = st.columns(2)
-                with col3:
-                    # PLC.ua - შეცვლილი ლინკი
-                    plc_url = f"https://plc.ua/ca/vin-check/?vin={vin}"
-                    st.link_button("📜 ისტორია (PLC.ua)", plc_url, use_container_width=True)
-                
-                with col4:
-                    st.link_button("📊 Carfax რეპორტი", f"https://www.carfax.com/vin/{vin}", use_container_width=True)
-                
-                # Google Search ღილაკი - ყველაზე საიმედოა, როცა სხვა საიტები იბნევიან
-                st.write("---")
-                google_url = f"https://www.google.com/search?q={vin}+auction+copart+iaai"
-                st.link_button("🌐 მოძებნე Google-ში (ფოტოები/აუქციონები)", google_url, use_container_width=True)
-
-                if not vin.startswith(('1','2','3','4','5')):
-                    st.info("💡 ეს კოდი ევროპული ჩანს.")
-                    st.link_button("🇪🇺 AutoDNA (ევროპული ბაზა)", f"https://www.autodna.com/vin/{vin}", use_container_width=True)
+                st.success(f"ამოცნობილია: {vin}")
+                st.code(vin)
+                st.link_button("Google ძებნა", f"https://www.google.com/search?q={vin}+auction+damage")
             else:
-                st.error("❌ ვალიდური VIN ვერ მოიძებნა. სცადეთ სხვა ფოტო.")
+                st.error("VIN ვერ მოიძებნა")
+
+with tabs[1]:
+    st.subheader("აუქციონის აღწერილობის გაშიფვრა")
+    auction_text = st.text_area("ჩააკოპირეთ ტექსტი აუქციონის გვერდიდან (მაგ: Primary Damage: Front End...)", height=150)
+    
+    if st.button("ანალიზი"):
+        if auction_text:
+            issues, drive_status = analyze_auction_text(auction_text)
+            
+            st.write("### 📊 შედეგები:")
+            st.info(drive_status)
+            
+            if issues:
+                st.warning("ნაპოვნია დაზიანებები:")
+                for issue in issues:
+                    st.write(f"- {issue}")
+            else:
+                st.success("ტექსტში კრიტიკული დაზიანებები არ იკვეთება.")
+        else:
+            st.error("გთხოვთ, შეიყვანოთ ტექსტი.")
