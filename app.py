@@ -4,9 +4,9 @@ import base64
 import re
 
 # --- კონფიგურაცია ---
-st.set_page_config(page_title="Car VIN Searcher", layout="wide")
+st.set_page_config(page_title="იოანეს მანქანის ძებნა", layout="wide")
 
-# Google Vision API გასაღები VIN-ის ამოსაცნობად
+# Google Vision API გასაღები
 VISION_API_KEY = "AIzaSyAB3kFsY8BntxR-DaKmBz9CKWYsJ0QhzLs"
 
 if 'step' not in st.session_state: st.session_state.step = 1
@@ -33,13 +33,12 @@ def extract_vin(image_bytes):
         return None
 
 # --- ინტერფეისი ---
-st.title("🚗 Car VIN Searcher")
+st.title("🚗 იოანეს მანქანის ძებნა")
 
 if st.session_state.step == 1:
-    st.header("🔎 ნაბიჯი 1: VIN-ის ამოცნობა")
-    st.write("ატვირთეთ ფოტო, სადაც ჩანს VIN კოდი.")
+    st.subheader("📸 ატვირთეთ ვინ კოდის სურათი")
     
-    file = st.file_uploader("აირჩიეთ ფაილი", type=['jpg', 'jpeg', 'png'])
+    file = st.file_uploader("აირჩიეთ ფაილი (JPG, PNG)", type=['jpg', 'jpeg', 'png'])
     
     if file and st.button("ამოცნობა და ძიება 🚀"):
         with st.spinner("მიმდინარეობს VIN-ის ამოცნობა..."):
@@ -49,26 +48,27 @@ if st.session_state.step == 1:
                 st.session_state.step = 2
                 st.rerun()
             else:
-                st.error("VIN კოდი ვერ ამოიცნო. სცადეთ სხვა ფოტო ან შეიყვანეთ ხელით.")
+                st.error("VIN კოდი ვერ ამოიცნო. სცადეთ უფრო მკაფიო ფოტო.")
                 
+    st.divider()
     manual_vin = st.text_input("ან შეიყვანეთ VIN ხელით:")
-    if manual_vin and st.button("ხელით ძიება"):
-        st.session_state.vin = manual_vin.upper()
+    if manual_vin and st.button("ძიება"):
+        st.session_state.vin = manual_vin.upper().strip()
         st.session_state.step = 2
         st.rerun()
 
 elif st.session_state.step == 2:
-    st.header(f"🔍 ძიება VIN-ით: {st.session_state.vin}")
+    st.header(f"🔍 ნაპოვნია VIN: {st.session_state.vin}")
     
-    st.write("გამოიყენეთ ქვემოთ მოცემული ღილაკი ინფორმაციის მოსაძიებლად:")
-    
-    # მხოლოდ Google ძიების ფუნქცია
+    # მხოლოდ Google ძიება
     google_url = f"https://www.google.com/search?q={st.session_state.vin}"
+    
+    st.info("დააჭირეთ ღილაკს ინფორმაციის სანახავად:")
     st.link_button("🌐 მოძებნე Google-ში", google_url, use_container_width=True)
     
     st.divider()
     
-    if st.button("🔄 სხვა კოდის შემოწმება"):
+    if st.button("🔄 სხვა მანქანის შემოწმება"):
         st.session_state.step = 1
         st.session_state.vin = None
         st.rerun()
