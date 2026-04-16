@@ -6,37 +6,50 @@ import re
 # --- კონფიგურაცია ---
 st.set_page_config(page_title="ვინ კოდით ძებნა", layout="wide")
 
-# სრულყოფილი მუქი ფონის სტილი
+# რუხი ფონის და მკაფიო ღილაკების სტილი
 st.markdown("""
     <style>
+    /* მთლიანი გვერდის რუხი ფონი */
     .stApp {
-        background-color: #0e1117;
-        color: #fafafa;
+        background-color: #2b2d33;
+        color: #ffffff;
     }
     header[data-testid="stHeader"] {
-        background-color: #0e1117;
+        background-color: #2b2d33;
     }
+    /* ტექსტის ფერები */
     h1, h2, h3, p, span, label {
-        color: #fafafa !important;
+        color: #ffffff !important;
     }
+    /* ფაილის ატვირთვის ზონა */
     section[data-testid="stFileUploadDropzone"] {
-        background-color: #161b22;
-        border: 1px solid #30363d;
+        background-color: #3d4048;
+        border: 2px dashed #64676e;
     }
+    /* მკაფიო და კონტრასტული ღილაკები */
     .stButton>button {
-        background-color: #21262d;
-        color: #c9d1d9;
-        border: 1px solid #30363d;
+        background-color: #007bff; /* მკაფიო ლურჯი */
+        color: white !important;
+        border: none;
+        padding: 12px 24px;
+        font-weight: bold;
+        font-size: 16px;
+        border-radius: 8px;
         width: 100%;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.2);
+        transition: 0.3s;
     }
     .stButton>button:hover {
-        border-color: #8b949e;
-        color: #ffffff;
+        background-color: #0056b3;
+        box-shadow: 0 6px 12px rgba(0,0,0,0.3);
     }
+    /* ტექსტის შესაყვანი ველი */
     .stTextInput>div>div>input {
-        background-color: #0d1117;
+        background-color: #3d4048;
         color: #ffffff;
-        border: 1px solid #30363d;
+        border: 1px solid #64676e;
+        padding: 10px;
+        border-radius: 5px;
     }
     </style>
     """, unsafe_allow_html=True)
@@ -60,7 +73,6 @@ def extract_vin(image_bytes):
         response = requests.post(url, json=payload, timeout=20)
         res_json = response.json()
         text = res_json['responses'][0]['textAnnotations'][0]['description']
-        # 17 ნიშნა VIN-ის პოვნა
         match = re.search(r'[A-Z0-9]{17}', text.upper().replace('O', '0'))
         return match.group(0) if match else None
     except:
@@ -86,7 +98,7 @@ if st.session_state.step == 1:
                 
     st.divider()
     manual_vin = st.text_input("ან შეიყვანეთ VIN ხელით:")
-    if manual_vin and st.button("ძიება"):
+    if manual_vin and st.button("ხელით ძიება"):
         st.session_state.vin = manual_vin.upper().strip()
         st.session_state.step = 2
         st.rerun()
@@ -94,7 +106,6 @@ if st.session_state.step == 1:
 elif st.session_state.step == 2:
     st.header(f"ნაპოვნია VIN: {st.session_state.vin}")
     
-    # მხოლოდ Google-ის ძიების ბმული
     google_url = f"https://www.google.com/search?q={st.session_state.vin}"
     
     st.info("დააჭირეთ ღილაკს ინფორმაციის სანახავად:")
