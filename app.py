@@ -6,21 +6,43 @@ import re
 # --- კონფიგურაცია ---
 st.set_page_config(page_title="იოანეს მანქანის ძებნა", layout="wide")
 
-# მუქი ფონის სტილი (CSS)
+# სრულყოფილი მუქი ფონის სტილი
 st.markdown("""
     <style>
-    .main {
+    /* მთლიანი გვერდის ფონი */
+    .stApp {
         background-color: #0e1117;
+        color: #fafafa;
+    }
+    /* ჰედერის გამუქება */
+    header[data-testid="stHeader"] {
+        background-color: #0e1117;
+    }
+    /* ტექსტის ფერები */
+    h1, h2, h3, p, span, label {
+        color: #fafafa !important;
+    }
+    /* ფაილის ატვირთვის ზონა */
+    section[data-testid="stFileUploadDropzone"] {
+        background-color: #161b22;
+        border: 1px solid #30363d;
+    }
+    /* ღილაკების სტილი */
+    .stButton>button {
+        background-color: #21262d;
+        color: #c9d1d9;
+        border: 1px solid #30363d;
+        width: 100%;
+    }
+    .stButton>button:hover {
+        border-color: #8b949e;
         color: #ffffff;
     }
-    .stButton>button {
-        background-color: #262730;
-        color: white;
-        border: 1px solid #4f4f4f;
-    }
+    /* ტექსტის შესაყვანი ველი */
     .stTextInput>div>div>input {
-        background-color: #262730;
-        color: white;
+        background-color: #0d1117;
+        color: #ffffff;
+        border: 1px solid #30363d;
     }
     </style>
     """, unsafe_allow_html=True)
@@ -32,7 +54,6 @@ if 'step' not in st.session_state: st.session_state.step = 1
 if 'vin' not in st.session_state: st.session_state.vin = None
 
 def extract_vin(image_bytes):
-    """ამოიცნობს VIN კოდს ფოტოდან Google Vision-ის გამოყენებით"""
     encoded = base64.b64encode(image_bytes).decode('utf-8')
     url = f"https://vision.googleapis.com/v1/images:annotate?key={VISION_API_KEY}"
     payload = {
@@ -45,7 +66,6 @@ def extract_vin(image_bytes):
         response = requests.post(url, json=payload, timeout=20)
         res_json = response.json()
         text = res_json['responses'][0]['textAnnotations'][0]['description']
-        # ეძებს 17 სიმბოლოიან VIN ფორმატს
         match = re.search(r'[A-Z0-9]{17}', text.upper().replace('O', '0'))
         return match.group(0) if match else None
     except:
@@ -67,7 +87,7 @@ if st.session_state.step == 1:
                 st.session_state.step = 2
                 st.rerun()
             else:
-                st.error("VIN კოდი ვერ ამოიცნო. სცადეთ უფრო მკაფიო ფოტო.")
+                st.error("VIN კოდი ვერ ამოიცნო.")
                 
     st.divider()
     manual_vin = st.text_input("ან შეიყვანეთ VIN ხელით:")
@@ -79,7 +99,6 @@ if st.session_state.step == 1:
 elif st.session_state.step == 2:
     st.header(f"🔍 ნაპოვნია VIN: {st.session_state.vin}")
     
-    # მხოლოდ Google ძიება
     google_url = f"https://www.google.com/search?q={st.session_state.vin}"
     
     st.info("დააჭირეთ ღილაკს ინფორმაციის სანახავად:")
