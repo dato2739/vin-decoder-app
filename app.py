@@ -50,7 +50,7 @@ def scan_vin_strict(image_bytes):
     return None
 
 # ინტერფეისი
-st.markdown("<h1 style='text-align: center;'>🚗 VIN AI Pro</h1>", unsafe_allow_headers=True)
+st.markdown("<h1 style='text-align: center;'>🚗 VIN AI Pro</h1>", unsafe_allow_html=True)
 st.write("---")
 
 uploaded_file = st.file_uploader("ატვირთეთ ფოტო", type=['jpg', 'jpeg', 'png'])
