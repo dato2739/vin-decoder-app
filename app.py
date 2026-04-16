@@ -6,7 +6,7 @@ import re
 # --- კონფიგურაცია ---
 st.set_page_config(page_title="ვინ კოდით ძებნა", layout="wide")
 
-# რუხი ფონის და მკაფიო ღილაკების სტილი
+# რუხი ფონის და მკვეთრი ღილაკების სტილი
 st.markdown("""
     <style>
     /* მთლიანი გვერდის რუხი ფონი */
@@ -24,32 +24,38 @@ st.markdown("""
     /* ფაილის ატვირთვის ზონა */
     section[data-testid="stFileUploadDropzone"] {
         background-color: #3d4048;
-        border: 2px dashed #64676e;
+        border: 2px dashed #ff4b2b; /* მკვეთრი ჩარჩო */
     }
-    /* მკაფიო და კონტრასტული ღილაკები */
+    /* მკვეთრი ნარინჯისფერი ღილაკები */
     .stButton>button {
-        background-color: #007bff; /* მკაფიო ლურჯი */
+        background-color: #ff4b2b !important; /* მკვეთრი ნარინჯისფერი */
         color: white !important;
-        border: none;
-        padding: 12px 24px;
-        font-weight: bold;
-        font-size: 16px;
-        border-radius: 8px;
-        width: 100%;
-        box-shadow: 0 4px 6px rgba(0,0,0,0.2);
-        transition: 0.3s;
+        border: none !important;
+        padding: 15px 30px !important;
+        font-weight: 800 !important;
+        font-size: 18px !important;
+        border-radius: 10px !important;
+        width: 100% !important;
+        text-transform: uppercase !important;
+        letter-spacing: 1px !important;
+        box-shadow: 0 5px 15px rgba(255, 75, 43, 0.4) !important;
+        transition: 0.3s ease !important;
     }
     .stButton>button:hover {
-        background-color: #0056b3;
-        box-shadow: 0 6px 12px rgba(0,0,0,0.3);
+        background-color: #ff6a4d !important;
+        box-shadow: 0 8px 20px rgba(255, 75, 43, 0.6) !important;
+        transform: translateY(-2px);
     }
     /* ტექსტის შესაყვანი ველი */
     .stTextInput>div>div>input {
         background-color: #3d4048;
         color: #ffffff;
-        border: 1px solid #64676e;
-        padding: 10px;
-        border-radius: 5px;
+        border: 2px solid #64676e;
+        padding: 12px;
+        border-radius: 8px;
+    }
+    .stTextInput>div>div>input:focus {
+        border-color: #ff4b2b;
     }
     </style>
     """, unsafe_allow_html=True)
@@ -98,7 +104,7 @@ if st.session_state.step == 1:
                 
     st.divider()
     manual_vin = st.text_input("ან შეიყვანეთ VIN ხელით:")
-    if manual_vin and st.button("ხელით ძიება"):
+    if manual_vin and st.button("ხელით ძიება 🔍"):
         st.session_state.vin = manual_vin.upper().strip()
         st.session_state.step = 2
         st.rerun()
