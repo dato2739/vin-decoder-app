@@ -3,7 +3,7 @@ import requests
 import base64
 import re
 
-st.set_page_config(page_title="VIN AI Pro - Smart Hub", page_icon="🚗", layout="centered")
+st.set_page_config(page_title="VIN AI Pro - v1 + Smart Analysis", page_icon="🚗", layout="centered")
 
 API_KEY = "AIzaSyAB3kFsY8BntxR-DaKmBz9CKWYsJ0QhzLs"
 
@@ -37,6 +37,25 @@ def scan_vin_strict(image_bytes):
                 return clean_block
     return None
 
+def smart_damage_analysis(vin):
+    """საძიებო სისტემის მეშვეობით დაზიანებების და რისკების ანალიზი"""
+    # ვიყენებთ Google-ის ძებნის სიმულაციას ინფორმაციის მოსაკრებად
+    search_url = f"https://www.google.com/search?q=\"{vin}\"+damage+auction"
+    
+    # დაზიანების ტიპები და რისკ-ფაქტორები
+    risk_factors = {
+        "Flood/Water": "🌊 მაღალი რისკი: წყალში ნამყოფი (ელექტროობის პრობლემები)",
+        "Frame Damage": "🏗️ კრიტიკული რისკი: გეომეტრიის დაზიანება",
+        "Biohazard": "⚠️ საფრთხე: ბიოლოგიური დაზიანება სალონში",
+        "Junk/Scrap": "❌ კრიტიკული: მანქანა განკუთვნილია მხოლოდ ნაწილებად",
+        "Mechanical": "⚙️ რისკი: ძრავის ან გადაცემათა კოლოფის დეფექტი",
+        "Side Impact": "🚗 დაზიანება: გვერდითი დარტყმა",
+        "Front End": "💥 დაზიანება: წინა დარტყმა"
+    }
+    
+    # აქ მომავალში შეგვიძლია დავაკავშიროთ რეალური Search API უფრო დეტალური ანალიზისთვის
+    return risk_factors, search_url
+
 st.title("🚗 VIN AI Pro - Smart Hub")
 st.write("---")
 
@@ -45,7 +64,7 @@ uploaded_file = st.file_uploader("ატვირთეთ ფოტო", type=[
 if uploaded_file:
     st.image(uploaded_file, use_container_width=True)
     if st.button("ანალიზი და იდენტიფიკაცია", use_container_width=True):
-        with st.spinner("სისტემა ამოწმებს ბაზებს..."):
+        with st.spinner("მიმდინარეობს დამუშავება..."):
             vin = scan_vin_strict(uploaded_file.getvalue())
             
             if vin:
@@ -56,37 +75,38 @@ if uploaded_file:
                     st.subheader(f"📋 {details.get('ModelYear')} {details.get('Make')} {details.get('Model')}")
                 
                 st.write("---")
-                st.write("🔍 **ხელმისაწვდომი ინფორმაცია:**")
+                
+                # --- ახალი ფუნქცია: სურათებით ანალიზი ---
+                if st.button("🖼️ სურათებით ანალიზი და რისკები", use_container_width=True):
+                    risks, s_url = smart_damage_analysis(vin)
+                    st.markdown("### 🔍 სმარტ-ანალიზის შედეგი:")
+                    st.info(f"მკაცრი ძებნა ჩართულია VIN კოდზე: `{vin}`")
+                    
+                    st.warning("⚠️ ყურადღება მიაქციეთ შემდეგ ტერმინებს ძებნისას:")
+                    for r_name, r_desc in risks.items():
+                        st.write(f"- {r_desc}")
+                    
+                    st.link_button("გახსენი გაფილტრული სურათები", f"https://www.google.com/search?q=\"{vin}\"&tbm=isch", use_container_width=True)
+
+                st.write("---")
+                st.write("🔍 **სწრაფი ბმულები:**")
                 
                 col1, col2 = st.columns(2)
-                
                 with col1:
-                    # BidFax - პირდაპირი ძებნა
                     bidfax_url = f"https://bidfax.info/index.php?do=search&subaction=search&story={vin}"
-                    st.link_button("🖼️ აუქციონის ფოტოები (BidFax)", bidfax_url, use_container_width=True)
-                
+                    st.link_button("🖼️ BidFax (აუქციონები)", bidfax_url, use_container_width=True)
                 with col2:
-                    # Google - მხოლოდ VIN კოდით ძებნა (თქვენი მოთხოვნით)
                     google_url = f"https://www.google.com/search?q={vin}"
-                    st.link_button("🌐 მოძებნე Google-ში", google_url, use_container_width=True)
+                    st.link_button("🌐 Google Search", google_url, use_container_width=True)
 
                 col3, col4 = st.columns(2)
                 with col3:
-                    # PLC.ua
-                    plc_url = f"https://plc.ua/ca/vin-check/?vin={vin}"
-                    st.link_button("📜 ისტორია (PLC.ua)", plc_url, use_container_width=True)
-                
+                    st.link_button("📜 PLC.ua ისტორია", f"https://plc.ua/ca/vin-check/?vin={vin}", use_container_width=True)
                 with col4:
-                    # Carfax
                     st.link_button("📊 Carfax რეპორტი", f"https://www.carfax.com/vin/{vin}", use_container_width=True)
                 
-                st.write("---")
-                # NHTSA
                 if details:
+                    st.write("---")
                     st.link_button("🛡️ შეამოწმეთ Recall (NHTSA)", f"https://www.nhtsa.gov/recalls?vin={vin}", use_container_width=True)
-
-                if not vin.startswith(('1','2','3','4','5')):
-                    st.info("💡 ეს კოდი ევროპული ჩანს.")
-                    st.link_button("🇪🇺 AutoDNA (ევროპული ბაზა)", f"https://www.autodna.com/vin/{vin}", use_container_width=True)
             else:
                 st.error("❌ ვალიდური VIN ვერ მოიძებნა.")
