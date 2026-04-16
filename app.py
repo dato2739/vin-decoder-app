@@ -37,7 +37,6 @@ def scan_vin_strict(image_bytes):
                 return clean_block
     return None
 
-# ინტერფეისი
 st.title("🚗 VIN AI Pro - Smart Hub")
 st.write("---")
 
@@ -62,13 +61,32 @@ if uploaded_file:
                 col1, col2 = st.columns(2)
                 
                 with col1:
-                    # BidFax პირდაპირი ძებნა
+                    # BidFax - პირდაპირი ძებნა
                     bidfax_url = f"https://bidfax.info/index.php?do=search&subaction=search&story={vin}"
                     st.link_button("🖼️ აუქციონის ფოტოები (BidFax)", bidfax_url, use_container_width=True)
                 
                 with col2:
-                    # Google Images ყველაზე საიმედოა ფოტოებისთვის
-                    google_images_url = f"https://www.google.com/search?tbm=isch&q={vin}+auction+copart+iaai"
-                    st.link_button("🌐 ფოტოები Google-ში", google_images_url, use_container_width=True)
+                    # Google - მხოლოდ VIN კოდით ძებნა (თქვენი მოთხოვნით)
+                    google_url = f"https://www.google.com/search?q={vin}"
+                    st.link_button("🌐 მოძებნე Google-ში", google_url, use_container_width=True)
 
                 col3, col4 = st.columns(2)
+                with col3:
+                    # PLC.ua
+                    plc_url = f"https://plc.ua/ca/vin-check/?vin={vin}"
+                    st.link_button("📜 ისტორია (PLC.ua)", plc_url, use_container_width=True)
+                
+                with col4:
+                    # Carfax
+                    st.link_button("📊 Carfax რეპორტი", f"https://www.carfax.com/vin/{vin}", use_container_width=True)
+                
+                st.write("---")
+                # NHTSA
+                if details:
+                    st.link_button("🛡️ შეამოწმეთ Recall (NHTSA)", f"https://www.nhtsa.gov/recalls?vin={vin}", use_container_width=True)
+
+                if not vin.startswith(('1','2','3','4','5')):
+                    st.info("💡 ეს კოდი ევროპული ჩანს.")
+                    st.link_button("🇪🇺 AutoDNA (ევროპული ბაზა)", f"https://www.autodna.com/vin/{vin}", use_container_width=True)
+            else:
+                st.error("❌ ვალიდური VIN ვერ მოიძებნა.")
